@@ -3,6 +3,7 @@ import re
 from dotenv import load_dotenv
 from fastapi import FastAPI, HTTPException
 from fastapi.responses import HTMLResponse
+from fastapi.staticfiles import StaticFiles
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from openai import OpenAI
@@ -11,7 +12,6 @@ load_dotenv()
 
 app = FastAPI(title="SafeSpace")
 
-# Enable CORS for frontend integration
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -19,15 +19,11 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# OpenRouter Client Setup
 client = OpenAI(
     base_url="https://openrouter.ai/api/v1",
     api_key=os.getenv("OPENROUTER_API_KEY"),
 )
 
-# ------------------------------------------------------------------
-# SYSTEM PROMPT: Scope boundaries & behavioral rules
-# ------------------------------------------------------------------
 SYSTEM_PROMPT = """
 You are SafeSpace, a supportive, empathetic, and reflective conversational assistant focused on mental wellness support for users in Malaysia.
 
@@ -49,21 +45,10 @@ CRITICAL CONSTRAINTS:
 7. If the user may be in crisis, respond with support, encourage immediate human help, and avoid excessive detail.
 """
 
-# ------------------------------------------------------------------
-# HARDCODED CRISIS DETECTION (Runs BEFORE calling LLM)
-# ------------------------------------------------------------------
 CRISIS_KEYWORDS = [
-    r"\bsuicid\w*",
-    r"\bkill myself\b",
-    r"\bwant to die\b",
-    r"\bend my life\b",
-    r"\bself[- ]?harm\b",
-    r"\bhurt myself\b",
-    r"\bcutting myself\b",
-    r"\boverdose\b",
-    r"\bcan't go on\b",
-    r"\bcan not go on\b",
-    r"\bwant to disappear\b",
+    r"\bsuicid\w*", r"\bkill myself\b", r"\bwant to die\b", r"\bend my life\b",
+    r"\bself[- ]?harm\b", r"\bhurt myself\b", r"\bcutting myself\b",
+    r"\boverdose\b", r"\bcan't go on\b", r"\bcan not go on\b", r"\bwant to disappear\b",
 ]
 
 CRISIS_RESPONSE = (
@@ -79,17 +64,13 @@ CRISIS_RESPONSE = (
 )
 
 def check_crisis_trigger(text: str) -> bool:
-    """Scan input against crisis patterns."""
     for pattern in CRISIS_KEYWORDS:
         if re.search(pattern, text, re.IGNORECASE):
             return True
     return False
 
-# ------------------------------------------------------------------
-# API SCHEMAS & ENDPOINTS
-# ------------------------------------------------------------------
 class ChatMessage(BaseModel):
-    role: str  # "user" or "assistant"
+    role: str
     content: str
 
 class ChatRequest(BaseModel):
@@ -103,46 +84,33 @@ async def serve_frontend():
             return f.read()
     return "<h1>index.html not found</h1>"
 
-
 @app.post("/api/chat")
 async def chat_endpoint(request: ChatRequest):
-    # Step 1: Pre-execution Safety Check
     if check_crisis_trigger(request.user_input):
-        return {
-            "response": CRISIS_RESPONSE,
-            "flagged_crisis": True
-        }
+        return {"response": CRISIS_RESPONSE, "flagged_crisis": True}
 
-    # Step 2: Build Message Payload
     messages = [{"role": "system", "content": SYSTEM_PROMPT}]
-
-    # Add conversation history (up to last 6 turns for context efficiency)
     for msg in request.history[-6:]:
         messages.append({"role": msg.role, "content": msg.content})
-
     messages.append({"role": "user", "content": request.user_input})
 
-    # Step 3: Call Model via OpenRouter
     try:
         completion = client.chat.completions.create(
-            model="qwen/qwen-2.5-72b-instruct",
+            # Using OpenRouter's free-tier model to avoid 402 / quota errors
+            model="qwen/qwen3-next-80b-a3b-instruct:free", 
             messages=messages,
             temperature=0.6,
             max_tokens=400,
-            extra_headers={
-                "HTTP-Referer": "http://localhost:8000",
-                "X-Title": "SafeSpace",
-            }
         )
 
         bot_response = completion.choices[0].message.content
-        return {
-            "response": bot_response,
-            "flagged_crisis": False
-        }
+        return {"response": bot_response, "flagged_crisis": False}
 
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"LLM API Error: {str(e)}")
+
+# Serve static files (styles.css, logo.jpg, etc.)
+app.mount("/", StaticFiles(directory=".", html=False), name="static")
 
 if __name__ == "__main__":
     import uvicorn
