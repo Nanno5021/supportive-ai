@@ -1,0 +1,224 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>SafeSpace | AI Mental Wellness Companion</title>
+
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+
+    <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+    <main class="app">
+        <section class="hero">
+            <div class="brand">
+                <img src="logo.jpg" alt="SafeSpace logo" class="logo" />
+                <div class="brand-text">
+                    <h1>SafeSpace</h1>
+                    <p>Your AI mental wellness companion for empathetic conversations, emotional support, and practical self-care guidance.</p>
+                </div>
+            </div>
+
+            <div class="chips">
+                <span class="chip">🌿 Calm support</span>
+                <span class="chip">🧠 Reflection</span>
+                <span class="chip">🇲🇾 Malaysia-focused</span>
+                <span class="chip">💬 Practical guidance</span>
+            </div>
+        </section>
+
+        <section class="content">
+            <div class="disclaimer">
+                <strong>Important Notice</strong>
+                SafeSpace provides emotional support, self-reflection, and practical wellness guidance. It is not a substitute for licensed mental health care or emergency services. If you are in immediate danger or feel unable to stay safe, contact emergency services in Malaysia at 999 or reach out to someone you trust right away.
+            </div>
+            <div class="support-card">
+                <div class="support-text">
+                    <strong>Need real human support?</strong>
+                    <p>
+                        If you feel you would like to speak with a real mental health service, you can visit Malaysia's official MENTARI portal or contact Befrienders KL for free and confidential emotional support.
+                    </p>
+                </div>
+
+                <div class="support-actions">
+                    <a href="https://mentari.moh.gov.my/malay/" target="_blank" class="support-btn support-btn-primary">
+                        Visit MENTARI (MOH Malaysia)
+                    </a>
+
+                    <a href="tel:+60376272929" class="support-btn support-btn-secondary">
+                        Call Befrienders KL: +603-7627 2929
+                    </a>
+
+                    <a href="tel:999" class="support-btn support-btn-emergency">
+                        Emergency: Call 999
+                    </a>
+                </div>
+            </div>
+            <div class="chat-shell">
+                <div class="chat-header">
+                    <h2>Conversation</h2>
+                    <div class="status"><span class="status-dot"></span> Online and ready</div>
+                </div>
+
+                <div id="chatbox" aria-live="polite"></div>
+
+                <div class="composer">
+                    <input
+                        type="text"
+                        id="userInput"
+                        placeholder="How are you feeling today?"
+                        autocomplete="off"
+                        onkeydown="if(event.key==='Enter') sendMessage()"
+                    />
+                    <button id="sendBtn" onclick="sendMessage()">Send</button>
+                </div>
+            </div>
+        </section>
+
+        <div class="footnote">
+            SafeSpace can help with stress, overthinking, study pressure, work pressure, family expectations, loneliness, and everyday emotional struggles.
+            <div class="quick-actions">
+                <button class="quick-btn" onclick="setQuickPrompt('I feel stressed with studies')">Study stress</button>
+                <button class="quick-btn" onclick="setQuickPrompt('I feel overwhelmed and tired')">Overwhelmed</button>
+                <button class="quick-btn" onclick="setQuickPrompt('I need help calming down')">Calm down</button>
+                <button class="quick-btn" onclick="setQuickPrompt('I want motivation to start again')">Need motivation</button>
+            </div>
+        </div>
+    </main>
+
+    <script>
+        const history = [];
+        const chatbox = document.getElementById("chatbox");
+        const inputEl = document.getElementById("userInput");
+        const sendBtn = document.getElementById("sendBtn");
+
+        function escapeHTML(text) {
+            return text
+                .replaceAll("&", "&amp;")
+                .replaceAll("<", "&lt;")
+                .replaceAll(">", "&gt;")
+                .replaceAll('"', "&quot;")
+                .replaceAll("'", "&#039;");
+        }
+
+        function formatMessage(text) {
+            return escapeHTML(text).replace(/\n/g, "<br>");
+        }
+
+        function scrollToBottom() {
+            chatbox.scrollTop = chatbox.scrollHeight;
+        }
+
+        function addMessage(role, text, isCrisis = false) {
+            const div = document.createElement("div");
+            div.className = `msg ${role}${isCrisis ? " crisis" : ""}`;
+            div.innerHTML = `
+                <span class="label">${role === "user" ? "You" : "SafeSpace"}</span>
+                <div>${formatMessage(text)}</div>
+            `;
+            chatbox.appendChild(div);
+            scrollToBottom();
+        }
+
+        function addSystemNote(text) {
+            const div = document.createElement("div");
+            div.className = "system-note";
+            div.textContent = text;
+            chatbox.appendChild(div);
+            scrollToBottom();
+        }
+
+        function setQuickPrompt(text) {
+            inputEl.value = text;
+            inputEl.focus();
+        }
+
+        // Add loading indicator message
+        function addLoadingIndicator() {
+            const div = document.createElement("div");
+            div.className = "msg assistant loading";
+            div.id = "loadingIndicator";
+            div.innerHTML = `
+                <span class="label">SafeSpace</span>
+                <div class="loading-dots">
+                    <span class="dot"></span>
+                    <span class="dot"></span>
+                    <span class="dot"></span>
+                </div>
+            `;
+            chatbox.appendChild(div);
+            scrollToBottom();
+        }
+
+        function removeLoadingIndicator() {
+            const loadingEl = document.getElementById("loadingIndicator");
+            if (loadingEl) {
+                loadingEl.remove();
+            }
+        }
+
+        // Welcome message
+        addSystemNote("SafeSpace is here to listen, reflect, and guide you through tough moments one step at a time.");
+        addMessage(
+            "assistant",
+            "Hello, I'm SafeSpace.\n\nI'm here to listen without judgement and help you explore practical ways to support your wellbeing.\n\nHow have you been feeling lately?"
+        );
+
+        async function sendMessage() {
+            const text = inputEl.value.trim();
+            if (!text) return;
+
+            addMessage("user", text);
+            history.push({ role: "user", content: text });
+
+            inputEl.value = "";
+            inputEl.focus();
+
+            sendBtn.disabled = true;
+            sendBtn.textContent = "Sending...";
+
+            // Show loading indicator
+            addLoadingIndicator();
+
+            try {
+                const res = await fetch("/api/chat", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({
+                        history: history,
+                        user_input: text
+                    })
+                });
+
+                // Remove loading indicator
+                removeLoadingIndicator();
+
+                if (!res.ok) {
+                    throw new Error(`HTTP error ${res.status}`);
+                }
+
+                const data = await res.json();
+                const assistantText = data.response || "Sorry, I could not generate a response just now.";
+                addMessage("assistant", assistantText, Boolean(data.flagged_crisis));
+
+                if (!data.flagged_crisis) {
+                    history.push({ role: "assistant", content: assistantText });
+                }
+            } catch (err) {
+                // Remove loading indicator
+                removeLoadingIndicator();
+                addMessage(
+                    "assistant",
+                    "I could not connect to the backend server just now. Please check that your API is running on http://localhost:8000."
+                );
+            } finally {
+                sendBtn.disabled = false;
+                sendBtn.textContent = "Send";
+            }
+        }
+    </script>
+</body>
+</html>
