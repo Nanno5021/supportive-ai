@@ -212,7 +212,7 @@
                 removeLoadingIndicator();
                 addMessage(
                     "assistant",
-                    "I could not connect to the backend server just now. Please check that your API is running on http://localhost:8000."
+                    `Connection or API Error: ${err.message || "Please check your Render environment variables and OpenRouter API key."}`
                 );
             } finally {
                 sendBtn.disabled = false;
