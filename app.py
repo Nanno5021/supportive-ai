@@ -96,8 +96,8 @@ async def chat_endpoint(request: ChatRequest):
 
     try:
         completion = client.chat.completions.create(
-            # Using OpenRouter's free-tier model to avoid 402 / quota errors
-            model="openrouter/free", 
+            # input any models that is free
+            model="qwen/qwen3-next-80b-a3b-instruct:free", 
             messages=messages,
             temperature=0.6,
             max_tokens=400,
