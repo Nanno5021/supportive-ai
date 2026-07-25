@@ -96,12 +96,7 @@ async def chat_endpoint(request: ChatRequest):
 
     try:
         completion = client.chat.completions.create(
-            # input any models that is free
-            model=[
-                "qwen/qwen3-next-80b-a3b-instruct:free",
-                "meta-llama/llama-3.3-70b-instruct:free"
-            ],
-
+            model="openrouter/free",
             messages=messages,
             temperature=0.6,
             max_tokens=400,
