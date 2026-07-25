@@ -97,10 +97,18 @@ async def chat_endpoint(request: ChatRequest):
     try:
         completion = client.chat.completions.create(
             # input any models that is free
-            model="qwen/qwen3-next-80b-a3b-instruct:free", 
+            model=[
+                "qwen/qwen3-next-80b-a3b-instruct:free",
+                "meta-llama/llama-3.3-70b-instruct:free"
+            ],
+
             messages=messages,
             temperature=0.6,
             max_tokens=400,
+            extra_headers={
+                "HTTP-Referer": "https://supportive-ai.onrender.com",
+                "X-Title": "SafeSpace",
+            }
         )
 
         bot_response = completion.choices[0].message.content
