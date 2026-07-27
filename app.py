@@ -40,15 +40,25 @@ CRITICAL CONSTRAINTS:
 2. Never provide a diagnosis, psychological assessment, or medication advice.
 3. Do not shame, lecture, or overwhelm the user.
 4. Keep responses concise, usually 2–4 short paragraphs max.
-5. When appropriate, encourage reaching out to trusted people or local professional support.
-6. Do not use US-centric crisis references unless specifically relevant. Prefer Malaysia context.
-7. If the user may be in crisis, respond with support, encourage immediate human help, and avoid excessive detail.
+5. Do not include any phone numbers, hotline numbers, website links, URLs, or contact details in normal responses.
+6. Only the exact CRISIS_RESPONSE may include approved emergency contact details.
+7. When appropriate, encourage reaching out to trusted people or local professional support without giving any numbers or links.
+8. Do not use US-centric crisis references unless specifically relevant. Prefer Malaysia context.
+9. If the user may be in crisis, respond with support, encourage immediate human help, and avoid excessive detail.
 """
 
 CRISIS_KEYWORDS = [
-    r"\bsuicid\w*", r"\bkill myself\b", r"\bwant to die\b", r"\bend my life\b",
-    r"\bself[- ]?harm\b", r"\bhurt myself\b", r"\bcutting myself\b",
-    r"\boverdose\b", r"\bcan't go on\b", r"\bcan not go on\b", r"\bwant to disappear\b",
+    r"\bsuicid\w*",
+    r"\bkill myself\b",
+    r"\bwant to die\b",
+    r"\bend my life\b",
+    r"\bself[- ]?harm\b",
+    r"\bhurt myself\b",
+    r"\bcutting myself\b",
+    r"\boverdose\b",
+    r"\bcan't go on\b",
+    r"\bcan not go on\b",
+    r"\bwant to disappear\b",
 ]
 
 CRISIS_RESPONSE = (
@@ -63,11 +73,25 @@ CRISIS_RESPONSE = (
     "and go to the nearest hospital emergency department or ask someone to take you there now."
 )
 
+# Matches URLs and likely phone numbers in normal assistant responses.
+CONTACT_PATTERN = re.compile(
+    r"(https?://\S+|www\.\S+|(?:\+?\d[\d\s().-]{6,}\d))",
+    re.IGNORECASE
+)
+
 def check_crisis_trigger(text: str) -> bool:
+    """Scan input against crisis patterns."""
     for pattern in CRISIS_KEYWORDS:
         if re.search(pattern, text, re.IGNORECASE):
             return True
     return False
+
+def remove_contact_details(text: str) -> str:
+    """Remove phone numbers and URLs from non-crisis responses."""
+    cleaned = CONTACT_PATTERN.sub("", text)
+    cleaned = re.sub(r"\s{2,}", " ", cleaned)
+    cleaned = re.sub(r"\n{3,}", "\n\n", cleaned)
+    return cleaned.strip()
 
 class ChatMessage(BaseModel):
     role: str
@@ -86,14 +110,17 @@ async def serve_frontend():
 
 @app.post("/api/chat")
 async def chat_endpoint(request: ChatRequest):
+    # Step 1: Crisis check BEFORE model call
     if check_crisis_trigger(request.user_input):
         return {"response": CRISIS_RESPONSE, "flagged_crisis": True}
 
+    # Step 2: Build prompt
     messages = [{"role": "system", "content": SYSTEM_PROMPT}]
     for msg in request.history[-6:]:
         messages.append({"role": msg.role, "content": msg.content})
     messages.append({"role": "user", "content": request.user_input})
 
+    # Step 3: Call model
     try:
         completion = client.chat.completions.create(
             model="openrouter/free",
@@ -106,14 +133,18 @@ async def chat_endpoint(request: ChatRequest):
             }
         )
 
-        bot_response = completion.choices[0].message.content
+        bot_response = completion.choices[0].message.content or ""
+        bot_response = remove_contact_details(bot_response)
+
         return {"response": bot_response, "flagged_crisis": False}
 
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"LLM API Error: {str(e)}")
 
-# Serve static files (styles.css, logo.jpg, etc.)
-app.mount("/", StaticFiles(directory=".", html=False), name="static")
+# Serve static files from /static instead of /
+# Put logo.jpg, styles.css, etc. in the same folder and reference them as needed.
+if os.path.isdir("static"):
+    app.mount("/static", StaticFiles(directory="static"), name="static")
 
 if __name__ == "__main__":
     import uvicorn
