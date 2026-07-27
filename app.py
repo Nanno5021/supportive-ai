@@ -141,11 +141,8 @@ async def chat_endpoint(request: ChatRequest):
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"LLM API Error: {str(e)}")
 
-# Serve static files from /static instead of /
-# Put logo.jpg, styles.css, etc. in the same folder and reference them as needed.
-if os.path.isdir("static"):
-    app.mount("/static", StaticFiles(directory="static"), name="static")
+app.mount("/", StaticFiles(directory=".", html=False), name="static")
 
-if __name__ == "__main__":
+if __name__ == "__main__": 
     import uvicorn
     uvicorn.run("app:app", host="0.0.0.0", port=8000, reload=True)
