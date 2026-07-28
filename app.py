@@ -47,6 +47,7 @@ CRITICAL CONSTRAINTS:
 9. When appropriate, encourage reaching out to trusted people or local professional support.
 10. Do not use US-centric crisis references unless specifically relevant. Prefer Malaysia context.
 11. If the user may be in crisis, respond with support, encourage immediate human help, and avoid excessive detail.
+12. Remember to recheck your respondse to make sure it is not cut off or incomplete. If it is, continue the response until it is complete.
 """
 
 CRISIS_KEYWORDS = [
